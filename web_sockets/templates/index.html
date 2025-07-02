@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Real-Time Negative Pressure Monitor</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h1>Live Negative Pressure</h1>
+    <ul id="latest-list"></ul>
+    <div id="chart" style="width:600px;height:400px;"></div>
+    <script>
+        const ws = new WebSocket('ws://127.0.0.1:6789');
+        const dataMap = {};
+        const maxPoints = 10;
+
+        ws.addEventListener('open', () => console.log('WebSocket connected'));
+        ws.addEventListener('message', event => {
+            const {device, time, value} = JSON.parse(event.data);
+            if (!dataMap[device]) dataMap[device] = {x: [], y: []};
+            dataMap[device].x.push(new Date(time));
+            dataMap[device].y.push(value);
+            if (dataMap[device].x.length > maxPoints) {
+                dataMap[device].x.shift(); dataMap[device].y.shift();
+            }
+            renderChart();
+        });
+
+        function renderChart() {
+            const traces = Object.entries(dataMap).map(([dev, d]) => ({
+                x: d.x,
+                y: d.y,
+                mode: 'lines+markers',
+                name: dev,
+                type: 'scatter'
+            }));
+            Plotly.react('chart', traces, { yaxis:{title:'cmH2O'}, xaxis:{type:'date'} });
+            const list = document.getElementById('latest-list'); list.innerHTML = '';
+            Object.entries(dataMap).forEach(([dev, d]) => {
+                const li = document.createElement('li');
+                li.textContent = `${dev}: ${d.y.at(-1).toFixed(1)} cmH2O`;
+                list.appendChild(li);
+            });
+        }
+    </script>
+</body>
+</html>
