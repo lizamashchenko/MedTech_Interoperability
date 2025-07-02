@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Heart Rate Monitor</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h1>Patient Monitor</h1>
+
+    <label for="patient-select">Select Patient:</label>
+    <select id="patient-select"></select>
+
+    <h2>Latest Value: <span id="latest">Loading...</span></h2>
+    <div id="chart" style="width:100%;max-width:700px;height:400px;"></div>
+
+    <h2 style="color: red;">Warnings:</h2>
+    <ul id="issue-list"></ul>
+
+    <script>
+        let currentPatient = "";
+
+        async function loadPatients() {
+            const res = await fetch("/api/patients");
+            const patients = await res.json();
+
+            const select = document.getElementById("patient-select");
+            select.innerHTML = "";
+
+            for (const p of patients) {
+                const opt = document.createElement("option");
+                opt.value = p.id;
+                opt.textContent = `${p.name} (${p.id})`;
+                select.appendChild(opt);
+            }
+
+            if (patients.length > 0) {
+                currentPatient = patients[0].id;
+                fetchAndDraw();
+                fetchIssues();
+            }
+
+            select.addEventListener("change", () => {
+                currentPatient = select.value;
+                fetchAndDraw();
+                fetchIssues();
+            });
+        }
+
+        async function fetchAndDraw() {
+            if (!currentPatient) return;
+            const res = await fetch(`/api/heart?patient=${currentPatient}`);
+            const data = await res.json();
+
+            const times = data.map(d => d.time);
+            const values = data.map(d => d.value);
+
+            document.getElementById("latest").textContent = values.at(-1) || "N/A";
+
+            Plotly.newPlot("chart", [{
+                x: times,
+                y: values,
+                type: "scatter",
+                mode: "lines+markers",
+                line: { shape: 'spline' }
+            }], {
+                title: `Recent Data for ${currentPatient}`,
+                yaxis: { title: "Pressure mmHg" },
+                xaxis: { title: "Time" }
+            });
+        }
+
+        async function fetchIssues() {
+            const res = await fetch(`/api/issues?patient=${currentPatient}`);
+            const issues = await res.json();
+            const list = document.getElementById("issue-list");
+            list.innerHTML = "";
+
+            if (issues.length === 0) {
+                list.innerHTML = "<li>No warnings</li>";
+            } else {
+                for (const issue of issues) {
+                    const li = document.createElement("li");
+                    li.textContent = `${issue.time}: ${issue.message}`;
+                    list.appendChild(li);
+                }
+            }
+        }
+
+        loadPatients();
+        setInterval(() => {
+            fetchAndDraw();
+            fetchIssues();
+        }, 5000);
+    </script>
+
+</body>
+
+</html>
