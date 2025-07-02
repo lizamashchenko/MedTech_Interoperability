@@ -49,7 +49,7 @@ def get_latest_device_issue(patient_id):
 def get_latest_reports(patient_id):
     search_url = (
         f"{FHIR_URL}/DiagnosticReport?"
-        f"subject=Patient/{patient_id}&"
+        f"subject=Patient/{patient_id}&"    
         f"_sort=-issued&_count=5"
     )
 

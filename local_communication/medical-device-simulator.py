@@ -10,6 +10,8 @@ PATIENT_ID = -1
 ERROR_PROBABILITY = 0.1 
 
 observations_in_last_minute = []
+device_issues_in_last_minute = []
+pressure_values_in_last_minute = [] 
 
 def get_precise_time():
     return datetime.utcnow().replace(tzinfo=timezone.utc).isoformat(timespec='milliseconds')
@@ -58,8 +60,9 @@ def create_pressure_observation(pressure: int):
             parts = location.split('/')
             if "Observation" in parts:
                 idx = parts.index("Observation")
-                obs_id = parts[idx + 1]  # This is '67' in example
+                obs_id = parts[idx + 1]
                 observations_in_last_minute.append(obs_id)
+                pressure_values_in_last_minute.append(pressure)
         else:
             print("Warning: No Location header in response")
 
@@ -92,14 +95,32 @@ def create_device_issue(issue_message: str):
 
     response = requests.post(f"{FHIR_URL}/Observation", json=observation)
     print(f"Sent DEVICE CONNECTION ISSUE '{issue_message}' at {observation['effectiveDateTime']} -> {response.status_code}")
+    if response.status_code == 201:
+        location = response.headers.get("Location")
+        if location:
+            obs_id = location.split("/Observation/")[1].split("/")[0]
+            device_issues_in_last_minute.append(obs_id)
 
 def create_diagnostic_report():
-    if not observations_in_last_minute:
+    if not observations_in_last_minute and not device_issues_in_last_minute:
         print("[INFO] No observations to include in report.")
         return
 
     report_id = str(uuid.uuid4())
     now_str = get_precise_time()
+
+    all_results = (
+        [{"reference": f"Observation/{oid}"} for oid in observations_in_last_minute] +
+        [{"reference": f"Observation/{oid}"} for oid in device_issues_in_last_minute]
+    )
+
+    if pressure_values_in_last_minute:
+        min_val = min(pressure_values_in_last_minute)
+        max_val = max(pressure_values_in_last_minute)
+        avg_val = sum(pressure_values_in_last_minute) / len(pressure_values_in_last_minute)
+        stats_text = f"Pressure stats — min: {min_val} mmHg, max: {max_val} mmHg, avg: {avg_val:.2f} mmHg."
+    else:
+        stats_text = "No pressure data available."
 
     report = {
         "resourceType": "DiagnosticReport",
@@ -118,16 +139,18 @@ def create_diagnostic_report():
         },
         "effectiveDateTime": now_str,
         "issued": now_str,
-        "result": [{"reference": f"Observation/{oid}"} for oid in observations_in_last_minute],
-        "conclusion": f"Report contains {len(observations_in_last_minute)} entries from the past minute."
-    }
+        "result": all_results,
+        "conclusion": (
+            f"Report contains {len(observations_in_last_minute)} observations and "
+            f"{len(device_issues_in_last_minute)} device issues from the past minute. "
+            f"{stats_text}"
+        )}
 
     response = requests.post(f"{FHIR_URL}/DiagnosticReport", json=report)
     print(f"[REPORT] DiagnosticReport submitted ({len(observations_in_last_minute)} observations) -> {response.status_code}")
     if response.status_code != 201:
         print("Response content:")
         print(response.text) 
-        print(f"Observations: {observations_in_last_minute}")
     observations_in_last_minute.clear()
 
 
