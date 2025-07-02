@@ -16,8 +16,28 @@
     <h2 style="color: red;">Warnings:</h2>
     <ul id="issue-list"></ul>
 
+    <h2 style="color: navy;">Recent Reports:</h2>
+    <ul id="report-list"></ul>
+
     <script>
         let currentPatient = "";
+
+        async function fetchReports() {
+            const res = await fetch(`/api/reports?patient=${currentPatient}`);
+            const reports = await res.json();
+            const list = document.getElementById("report-list");
+            list.innerHTML = "";
+
+            if (reports.length === 0) {
+                list.innerHTML = "<li>No reports available</li>";
+            } else {
+                for (const r of reports) {
+                    const li = document.createElement("li");
+                    li.textContent = `${r.issued}: ${r.text}`;
+                    list.appendChild(li);
+                }
+            }
+        }
 
         async function loadPatients() {
             const res = await fetch("/api/patients");
@@ -43,7 +63,9 @@
                 currentPatient = select.value;
                 fetchAndDraw();
                 fetchIssues();
+                fetchReports();
             });
+
         }
 
         async function fetchAndDraw() {
@@ -90,7 +112,9 @@
         setInterval(() => {
             fetchAndDraw();
             fetchIssues();
+            fetchReports();
         }, 5000);
+
     </script>
 
 </body>

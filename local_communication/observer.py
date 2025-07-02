@@ -46,6 +46,26 @@ def get_latest_device_issue(patient_id):
     
     return issues
 
+def get_latest_reports(patient_id):
+    search_url = (
+        f"{FHIR_URL}/DiagnosticReport?"
+        f"subject=Patient/{patient_id}&"
+        f"_sort=-issued&_count=5"
+    )
+
+    response = requests.get(search_url)
+    bundle = response.json()
+    reports = []
+
+    if "entry" in bundle:
+        for entry in bundle["entry"]:
+            report = entry["resource"]
+            reports.append({
+                "issued": report.get("issued", "Unknown time"),
+                "text": report.get("conclusion", "No summary")
+            })
+
+    return reports
 
 @app.route("/")
 def index():
@@ -79,6 +99,11 @@ def issues_api():
     issues = get_latest_device_issue(patient_id)
     return jsonify(issues)
 
+@app.route("/api/reports")
+def reports_api():
+    patient_id = request.args.get("patient", "test-patient")
+    reports = get_latest_reports(patient_id)
+    return jsonify(reports)
 
 if __name__ == "__main__":
     app.run(debug=True)
