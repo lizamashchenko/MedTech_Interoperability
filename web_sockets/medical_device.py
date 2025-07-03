@@ -7,6 +7,12 @@ SERVER_WS_URL = "ws://127.0.0.1:6789"
 DEVICE_ID = "neg-pressure-device-1"
 PATIENT_ID = "patient-1"
 
+OPERATION_MODES = ["continuous", "intermittent"]
+OPERATION_STATUS = ["running", "paused"]
+
+current_mode = OPERATION_MODES[0]
+current_status = OPERATION_STATUS[0]
+
 async def send_data():
     async with websockets.connect(SERVER_WS_URL) as ws:
         while True:
@@ -14,8 +20,10 @@ async def send_data():
                 payload = {
                     "device_id": DEVICE_ID,
                     "value": 0,
+                    "mode": current_mode,
+                    "status": current_status,
                     "error": True,
-                    "message": "ERROR"
+                    "message": "ERROR",
                 }
 
             else:
@@ -24,7 +32,9 @@ async def send_data():
                     "device_id": DEVICE_ID,
                     "value": val,
                     "error": False,
-                    "message": ""
+                    "message": "",
+                    "mode": current_mode,
+                    "status": current_status,
                 }
 
             await ws.send(json.dumps(payload))

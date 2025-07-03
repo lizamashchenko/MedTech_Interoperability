@@ -125,7 +125,6 @@ def build_error(data):
         "effectiveDateTime": now,
         "valueString": message
     }
-
     return error
 
 connected_devices = set()
@@ -136,6 +135,8 @@ async def register(ws):
         async for message in ws:
             data = json.loads(message)
             device_id = data.get("device_id")
+            mode = data.get("mode", "unknown")
+            status = data.get("status", "unknown")
             print(f"Received from device {device_id}: {data}")
 
             if device_id not in registered_id:
@@ -146,6 +147,28 @@ async def register(ws):
                 obs = build_error(data)
             else:
                 obs = build_observation(data)
+
+            obs["component"] = [
+            {
+                "code": {
+                    "coding": [{
+                        "system": "http://example.org/device-mode",
+                        "code": "mode"
+                    }],
+                    "text": "Device mode"
+                },
+                "valueString": mode
+            },
+            {
+                "code": {
+                    "coding": [{
+                        "system": "http://example.org/device-status",
+                        "code": "status"
+                    }],
+                    "text": "Device status"
+                },
+                "valueString": status
+            }]
 
             r = requests.post(f"{FHIR_URL}/Observation", json=obs, headers=HEADERS)
             print(f"→ FHIR status: {r.status_code}")

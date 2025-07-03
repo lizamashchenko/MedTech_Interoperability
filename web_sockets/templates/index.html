@@ -1,47 +1,122 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Real-Time Negative Pressure Monitor</title>
+    <title>Heart Rate Monitor</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
 <body>
-    <h1>Live Negative Pressure</h1>
-    <ul id="latest-list"></ul>
-    <div id="chart" style="width:600px;height:400px;"></div>
+    <h1>Patient Monitor</h1>
+
+    <label for="patient-select">Select Patient:</label>
+    <select id="patient-select"></select>
+
+    <h2>Latest Value: <span id="latest">Loading...</span></h2>
+    <div id="chart" style="width:100%;max-width:700px;height:400px;"></div>
+
+    <h2 style="color: red;">Warnings:</h2>
+    <ul id="issue-list"></ul>
+
+    <h2 style="color: navy;">Recent Reports:</h2>
+    <ul id="report-list"></ul>
+
     <script>
-        const ws = new WebSocket('ws://127.0.0.1:6789');
-        const dataMap = {};
-        const maxPoints = 10;
+        let currentPatient = "";
 
-        ws.addEventListener('open', () => console.log('WebSocket connected'));
-        ws.addEventListener('message', event => {
-            const {device, time, value} = JSON.parse(event.data);
-            if (!dataMap[device]) dataMap[device] = {x: [], y: []};
-            dataMap[device].x.push(new Date(time));
-            dataMap[device].y.push(value);
-            if (dataMap[device].x.length > maxPoints) {
-                dataMap[device].x.shift(); dataMap[device].y.shift();
+        async function fetchReports() {
+            const res = await fetch(`/api/reports?patient=${currentPatient}`);
+            const reports = await res.json();
+            const list = document.getElementById("report-list");
+            list.innerHTML = "";
+
+            if (reports.length === 0) {
+                list.innerHTML = "<li>No reports available</li>";
+            } else {
+                for (const r of reports) {
+                    const li = document.createElement("li");
+                    li.textContent = `${r.issued}: ${r.text}`;
+                    list.appendChild(li);
+                }
             }
-            renderChart();
-        });
+        }
 
-        function renderChart() {
-            const traces = Object.entries(dataMap).map(([dev, d]) => ({
-                x: d.x,
-                y: d.y,
-                mode: 'lines+markers',
-                name: dev,
-                type: 'scatter'
-            }));
-            Plotly.react('chart', traces, { yaxis:{title:'cmH2O'}, xaxis:{type:'date'} });
-            const list = document.getElementById('latest-list'); list.innerHTML = '';
-            Object.entries(dataMap).forEach(([dev, d]) => {
-                const li = document.createElement('li');
-                li.textContent = `${dev}: ${d.y.at(-1).toFixed(1)} cmH2O`;
-                list.appendChild(li);
+        async function loadPatients() {
+            const res = await fetch("/api/patients");
+            const patients = await res.json();
+
+            const select = document.getElementById("patient-select");
+            select.innerHTML = "";
+
+            for (const p of patients) {
+                const opt = document.createElement("option");
+                opt.value = p.id;
+                opt.textContent = `${p.name} (${p.id})`;
+                select.appendChild(opt);
+            }
+
+            if (patients.length > 0) {
+                currentPatient = patients[0].id;
+                fetchAndDraw();
+                fetchIssues();
+            }
+
+            select.addEventListener("change", () => {
+                currentPatient = select.value;
+                fetchAndDraw();
+                fetchIssues();
+                fetchReports();
+            });
+
+        }
+
+        async function fetchAndDraw() {
+            if (!currentPatient) return;
+            const res = await fetch(`/api/heart?patient=${currentPatient}`);
+            const data = await res.json();
+
+            const times = data.map(d => d.time);
+            const values = data.map(d => d.value);
+
+            document.getElementById("latest").textContent = values.at(-1) || "N/A";
+
+            Plotly.newPlot("chart", [{
+                x: times,
+                y: values,
+                type: "scatter",
+                mode: "lines+markers",
+                line: { shape: 'spline' }
+            }], {
+                title: `Recent Data for ${currentPatient}`,
+                yaxis: { title: "Pressure mmHg" },
+                xaxis: { title: "Time" }
             });
         }
+
+        async function fetchIssues() {
+            const res = await fetch(`/api/issues?patient=${currentPatient}`);
+            const issues = await res.json();
+            const list = document.getElementById("issue-list");
+            list.innerHTML = "";
+
+            if (issues.length === 0) {
+                list.innerHTML = "<li>No warnings</li>";
+            } else {
+                for (const issue of issues) {
+                    const li = document.createElement("li");
+                    li.textContent = `${issue.time}: ${issue.message}`;
+                    list.appendChild(li);
+                }
+            }
+        }
+
+        loadPatients();
+        setInterval(() => {
+            fetchAndDraw();
+            fetchIssues();
+            fetchReports();
+        }, 5000);
+
     </script>
+
 </body>
+
 </html>
