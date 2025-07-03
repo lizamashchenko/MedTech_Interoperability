@@ -22,15 +22,26 @@ def get_latest_pressure_data(patient_id):
             obs = entry["resource"]
             value = obs["valueQuantity"]["value"]
             time = obs["effectiveDateTime"]
-            values.append({"value": value, "time": time})
-    
+
+            status = "unknown"
+            for component in obs.get("component", []):
+                if "code" in component and component["code"]["text"] == "Device status":
+                    status = component.get("valueString", "unknown")
+                    break
+
+            values.append({
+                "value": value,
+                "time": time,
+                "status": status
+            })
+
     return values
 
-def get_latest_device_issue(patient_id):
+def get_latest_device_error(patient_id):
     search_url = (
         f"{FHIR_URL}/Observation?"
         f"subject=Patient/{patient_id}&"
-        f"code=70325-2&_sort=-date&_count=1"
+        f"code=70325-2&_sort=-date"
     )
 
     response = requests.get(search_url)
@@ -40,7 +51,27 @@ def get_latest_device_issue(patient_id):
     if "entry" in bundle:
         for entry in bundle["entry"]:
             obs = entry["resource"]
-            issue_msg = obs.get("valueString", "Unknown issue")
+            issue_msg = obs.get("valueString", "Unknown error")
+            time = obs.get("effectiveDateTime", "Unknown time")
+            issues.append({"message": issue_msg, "time": time})
+    
+    return issues
+
+def get_latest_device_warning(patient_id):
+    search_url = (
+        f"{FHIR_URL}/Observation?"
+        f"subject=Patient/{patient_id}&"
+        f"code=69758-7&_sort=-date"
+    )
+
+    response = requests.get(search_url)
+    bundle = response.json()
+    issues = []
+
+    if "entry" in bundle:
+        for entry in bundle["entry"]:
+            obs = entry["resource"]
+            issue_msg = obs.get("valueString", "Unknown warning")
             time = obs.get("effectiveDateTime", "Unknown time")
             issues.append({"message": issue_msg, "time": time})
     
@@ -93,10 +124,16 @@ def heart_api():
     data = get_latest_pressure_data(patient_id)
     return jsonify(data)
 
-@app.route("/api/issues")
-def issues_api():
+@app.route("/api/errors")
+def errors_api():
     patient_id = request.args.get("patient", "test-patient")
-    issues = get_latest_device_issue(patient_id)
+    issues = get_latest_device_error(patient_id)
+    return jsonify(issues)
+
+@app.route("/api/warning")
+def warnings_api():
+    patient_id = request.args.get("patient", "test-patient")
+    issues = get_latest_device_warning(patient_id)
     return jsonify(issues)
 
 @app.route("/api/reports")
