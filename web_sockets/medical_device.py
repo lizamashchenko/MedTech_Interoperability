@@ -1,0 +1,35 @@
+import asyncio
+import websockets
+import json
+import random
+
+SERVER_WS_URL = "ws://127.0.0.1:6789"
+DEVICE_ID = "neg-pressure-device-1"
+PATIENT_ID = "patient-1"
+
+async def send_data():
+    async with websockets.connect(SERVER_WS_URL) as ws:
+        while True:
+            if random.random() < 0.1:
+                payload = {
+                    "device_id": DEVICE_ID,
+                    "value": 0,
+                    "error": True,
+                    "message": "ERROR"
+                }
+
+            else:
+                val = -random.uniform(50, 100)
+                payload = {
+                    "device_id": DEVICE_ID,
+                    "value": val,
+                    "error": False,
+                    "message": ""
+                }
+
+            await ws.send(json.dumps(payload))
+            print(f"Sent: {payload}")
+            await asyncio.sleep(5)
+
+if __name__ == '__main__':
+    asyncio.run(send_data())
