@@ -83,6 +83,12 @@
       <ul id="report-list" class="list-group list-group-flush"></ul>
     </div>
   </div>
+
+  <div class="card">
+    <div class="card-body">
+        <button onclick="downloadReport()" class="btn btn-primary">📥 Download PDF Report</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -228,7 +234,22 @@
         statusBadge.textContent = "Error";
         statusBadge.className = "badge bg-danger";
     }
-    }
+  }
+  async function downloadReport() {
+    if (!currentPatient) return;
+
+    const response = await fetch(`/api/report/pdf?patient=${currentPatient}`);
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `report_${currentPatient}.pdf`;
+    a.click();
+
+    window.URL.revokeObjectURL(url);
+  }
+
 
 
   loadPatients();

@@ -57,8 +57,8 @@ def end_therapy():
             async with websockets.connect(SERVER_WS_URL) as ws:
                 payload = {
                     "device_id": DEVICE_ID,
-                    "value": 0,
                     "mode": current_mode,
+                    "value": last_value,
                     "status": current_status,
                     "error": False,
                     "message": "Therapy ended by user"
@@ -83,8 +83,8 @@ def send_manual_pause_observation():
             async with websockets.connect(SERVER_WS_URL) as ws:
                 payload = {
                     "device_id": DEVICE_ID,
-                    "value": 0,
                     "mode": current_mode,
+                    "value": last_value,
                     "status": OPERATION_STATUS["paused"],
                     "error": False,
                     "message": "Paused by user"
@@ -103,8 +103,8 @@ def send_manual_error(message, severity="error"):
             async with websockets.connect(SERVER_WS_URL) as ws:
                 payload = {
                     "device_id": DEVICE_ID,
-                    "value": 0,
                     "mode": current_mode,
+                    "value": last_value,
                     "status": current_status,
                     "error": True,
                     "severity": severity,
