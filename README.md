@@ -7,7 +7,20 @@ This repository represents a solution to interoperability communication between 
 - Websockets: for communication over the local area network (LAN)
 
 ## Prerequisite
-The communication is done via the server. For testing it was decided to use HAPI FHIR sandbox. You can find the documentation on the [official website](https://hapifhir.io/). Follow the instruction on their [GitHub repository](https://github.com/jamesagnew/hapi-fhir)
+- The communication is done via the server. For testing it was decided to use HAPI FHIR sandbox. You can find the documentation on the [official website](https://hapifhir.io/). Follow the instruction on their [GitHub repository](https://github.com/jamesagnew/hapi-fhir)
+- Make sure Python is installed. You can check with:
+
+```bash
+python --version
+```
+
+If needed, download it from: https://www.python.org/downloads/
+
+- Install required python packages using pip
+```bash
+pip install flask requests websockets reportlab
+sudo apt install python3-tk
+```
 
 ## Usage
 1. First start the HAPI FHIR server following instructions on [GitHub](https://github.com/hapifhir/hapi-fhir-jpaserver-starter)
@@ -28,12 +41,22 @@ For local communication:
 3. Navigate to http://127.0.0.1:5000/ to see the webpage
 
 For websocket communication:
-1. Start the medical devices
+1. Update the server IP and patient ID. Keep in mind that FHIR requires IDs to have at least one non-numeric charachter
+   ```python
+   SERVER_WS_URL = "ws://your-server-ip:6789"
+   DEVICE_ID = "device-id"
+   PATIENT_ID = "patient-id"
+   ``` 
+2. Start the socket server
    ```bash
-   python .\translator_socket.py
+   python .\socket_server.py
    ```
-2. Start the observer
+3. Start the medical devices
    ```bash
-   python .\app_socket.py
+   python .\medical_device.py
+    ```
+4. Start the patient monitor
+   ```bash
+   python .\observer.py
    ```
-3. Navigate to http://127.0.0.1:5000/ to see the webpage
+6. Navigate to http://127.0.0.1:5000/ to see the webpage
